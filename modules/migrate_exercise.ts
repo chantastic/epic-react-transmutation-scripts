@@ -16,12 +16,6 @@ export default function migrate_exercise({
 	let exercise_id = String(id).padStart(2, "0")
 	let shared_path = path.join(import.meta.url, "../..", project_path)
 	let new_exercises_path = path.join(shared_path, "exercises")
-	// let legacy_exercise_files = fs
-	// 	.readdirSync(new URL(get_legacy_src_path("exercise")))
-	// 	.filter((file) => file.startsWith(exercise_id) && !file.includes("extra-"))
-	// let legacy_final_files = fs
-	// 	.readdirSync(new URL(get_legacy_src_path("final")))
-	// 	.filter((file) => file.startsWith(exercise_id))
 
 	let new_exercise_path = path.join(
 		new_exercises_path,
@@ -41,10 +35,12 @@ export default function migrate_exercise({
 	})
 		.filter(
 			(file) =>
-				file.name.startsWith(exercise_id) && !file.name.includes("extra-")
+				file.isFile() &&
+				file.name.startsWith(exercise_id) &&
+				!file.name.includes("extra-")
 		)
 		.reduce(function moveExerciseInstructions(acc: fs.Dirent[], file) {
-			if (file.isFile() && file.name.endsWith(".md")) {
+			if (file.name.endsWith(".md")) {
 				fs.renameSync(
 					new URL(get_legacy_src_path("exercise", file.name)).pathname,
 					new URL(get_new_exercise_path("README.mdx")).pathname
@@ -55,11 +51,7 @@ export default function migrate_exercise({
 			return [...acc, file]
 		}, [])
 		.reduce(function moveExercisePlayground(acc: fs.Dirent[], file) {
-			if (
-				file.isFile() &&
-				file.name.startsWith(exercise_id) &&
-				!file.name.endsWith(".md")
-			) {
+			if (!file.name.endsWith(".md")) {
 				let get_initial_problem_dir = partial(get_new_exercise_path, [
 					"01.problem",
 				])
@@ -76,6 +68,32 @@ export default function migrate_exercise({
 				)
 				return acc
 			}
+
+			return [...acc, file]
+		}, [])
+
+	fs.readdirSync(new URL(get_legacy_src_path("final")), {
+		withFileTypes: true,
+	})
+		.filter((file) => {
+			return file.isFile() && file.name.startsWith(exercise_id)
+		})
+		.reduce(function moveExerciseSolution(acc: fs.Dirent[], file) {
+			let legacy_ec_id = Number(file.name.match(/-(\d*)\./)?.[1] || 0)
+			let new_offset_step_id = legacy_ec_id + 1
+
+			let get_solution_dir = partial(get_new_exercise_path, [
+				`${String(new_offset_step_id).padStart(2, "0")}.solution`,
+			])
+
+			create_dir(new URL(get_solution_dir()).pathname)
+
+			fs.renameSync(
+				new URL(get_legacy_src_path("final", file.name)).pathname,
+				new URL(
+					get_solution_dir(`index.${get_suffix_from_file_name(file.name)}`)
+				).pathname
+			)
 
 			return [...acc, file]
 		}, [])
