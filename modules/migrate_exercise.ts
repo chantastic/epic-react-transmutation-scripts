@@ -78,7 +78,10 @@ export default function migrate_exercise({
 		.filter((file) => {
 			return file.isFile() && file.name.startsWith(exercise_id)
 		})
-		.reduce(function moveExerciseSolution(acc: fs.Dirent[], file) {
+		.reduce(function move_extra_credit_to_step_solutions(
+			acc: fs.Dirent[],
+			file
+		) {
 			let legacy_ec_id = Number(file.name.match(/-(\d*)\./)?.[1] || 0)
 			let new_offset_step_id = legacy_ec_id + 1
 
@@ -96,7 +99,63 @@ export default function migrate_exercise({
 			)
 
 			return [...acc, file]
-		}, [])
+		},
+		[])
+
+	fs.readdirSync(new URL(get_new_exercise_path()), {withFileTypes: true})
+		.filter(
+			(dirent) => dirent.isDirectory() && dirent.name.includes("solution")
+		)
+		.sort(
+			(a, b) => Number(a.name.split(".")?.[0]) - Number(b.name.split(".")?.[0])
+		)
+		.reduce(function copy_step_solution_to_next_step_problem(
+			acc: fs.Dirent[],
+			dir,
+			_,
+			items
+		) {
+			let step_id = Number(dir.name.split(".")[0])
+			let offset_problem_id = step_id + 1
+
+			if (step_id < items.length) {
+				let step_solution_file = fs.readdirSync(
+					new URL(get_new_exercise_path(dir.name)),
+					{
+						withFileTypes: true,
+					}
+				)?.[0].name
+
+				try {
+					create_dir(
+						new URL(
+							get_new_exercise_path(
+								`${String(offset_problem_id).padStart(2, "0")}.problem`
+							)
+						).pathname
+					)
+
+					fs.copyFileSync(
+						new URL(get_new_exercise_path(dir.name, step_solution_file))
+							.pathname,
+						new URL(
+							get_new_exercise_path(
+								`${String(offset_problem_id).padStart(
+									2,
+									"0"
+								)}.problem/index.html`
+							)
+						).pathname
+					)
+				} catch (error) {
+					return [...acc, dir]
+				}
+			}
+
+			return acc
+		},
+		[])
+		.map(console.log)
 }
 
 function get_suffix_from_file_name(file_name: string) {
