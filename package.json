@@ -11,7 +11,8 @@
   },
   "dependencies": {
     "commander": "^11.0.0",
-    "lodash": "^4.17.21"
+    "lodash": "^4.17.21",
+    "title-case": "^4.1.0"
   },
   "prettier": {
     "useTabs": true,
